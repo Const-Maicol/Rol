@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 30-10-2023 a las 22:57:46
+-- Tiempo de generación: 02-11-2023 a las 00:06:34
 -- Versión del servidor: 10.4.28-MariaDB
 -- Versión de PHP: 8.2.4
 
@@ -20,11 +20,14 @@ SET time_zone = "+00:00";
 --
 -- Base de datos: `online_store`
 --
+CREATE DATABASE IF NOT EXISTS `online_store` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+USE `online_store`;
 
 DELIMITER $$
 --
 -- Procedimientos
 --
+DROP PROCEDURE IF EXISTS `BuscarProductos`$$
 CREATE DEFINER=`root`@`localhost` PROCEDURE `BuscarProductos` (IN `busqueda` VARCHAR(255))   BEGIN
     SELECT Id, Name AS titulo, Description AS description, Images AS url, '' AS otra_columna
     FROM products
@@ -39,11 +42,35 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `BuscarProductos` (IN `busqueda` VAR
           url LIKE CONCAT('%', busqueda, '%');
 END$$
 
+DROP PROCEDURE IF EXISTS `InsertarUsuario`$$
 CREATE DEFINER=`root`@`localhost` PROCEDURE `InsertarUsuario` (IN `p_nombre` VARCHAR(100), IN `p_username` VARCHAR(100), IN `p_pass` VARCHAR(100), IN `p_email` VARCHAR(100), IN `p_numberofdocument` VARCHAR(20), IN `p_numbercellphone` VARCHAR(20), IN `p_typeofdocument` VARCHAR(10), IN `p_gender` VARCHAR(10))   BEGIN
     INSERT INTO usuarios (p_nombre, p_username, p_pass, p_email, p_numberofdocument, p_numbercellphone, p_typeofdocument, p_gender)
     VALUES (p_nombre, p_username, p_pass, p_email, p_numberofdocument, p_numbercellphone, p_typeofdocument, p_gender);
 END$$
 
+DROP PROCEDURE IF EXISTS `MoveUserToAdmin`$$
+CREATE DEFINER=`root`@`localhost` PROCEDURE `MoveUserToAdmin` (IN `p_userId` INT)   BEGIN
+    DECLARE userRole INT;
+
+    -- Obtener el rol del usuario
+    SELECT rol INTO userRole FROM usuarios WHERE p_Id = p_userId;
+
+    -- Verificar si el rol es 2
+    IF userRole = 2 THEN
+        -- Insertar en la tabla admin
+        INSERT INTO admin (Id, Pass, Username, Rol)
+        SELECT p_Id, p_pass, p_username, rol FROM usuarios WHERE p_Id = p_userId;
+
+        -- Eliminar el usuario de la tabla usuarios
+        DELETE FROM usuarios WHERE p_Id = p_userId;
+        
+        SELECT 'Usuario movido a admin exitosamente.' AS Resultado;
+    ELSE
+        SELECT 'El usuario no tiene el rol necesario para ser movido a admin.' AS Resultado;
+    END IF;
+END$$
+
+DROP PROCEDURE IF EXISTS `sp_select_all_products`$$
 CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_select_all_products` ()   BEGIN
 SELECT product_id,product_name,product_descriptions,product_code,product_value,product_img,ST.status_name,TPRO.typeProduct_name 
 FROM product PRO 
@@ -52,6 +79,7 @@ INNER JOIN typeproduct TPRO ON PRO.typeProduct_id=TPRO.typeProduct_id
 WHERE ST.status_id=1;
 END$$
 
+DROP PROCEDURE IF EXISTS `sp_select_all_products_like`$$
 CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_select_all_products_like` (IN `nameProdcut` VARCHAR(40))   BEGIN
 SELECT product_id,product_name,product_descriptions,product_code,product_value,product_img,ST.status_name,TPRO.typeProduct_name 
 FROM product PRO 
@@ -60,6 +88,7 @@ INNER JOIN typeproduct TPRO ON PRO.typeProduct_id=TPRO.typeProduct_id
 WHERE product_name LIKE CONCAT('%', nameProdcut , '%') AND ST.status_id=1;
 END$$
 
+DROP PROCEDURE IF EXISTS `sp_update_product`$$
 CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_update_product` (IN `p_product_id` INT, IN `p_name` VARCHAR(100), IN `p_description` TEXT, IN `p_images` VARCHAR(100), IN `p_description_detailed` TEXT, IN `p_category` INT, IN `p_due_date` DATE)   BEGIN
     UPDATE `products`
     SET
@@ -73,6 +102,7 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_update_product` (IN `p_product_i
         `Id` = p_product_id;
 END$$
 
+DROP PROCEDURE IF EXISTS `userModules`$$
 CREATE DEFINER=`root`@`localhost` PROCEDURE `userModules` (IN `idUser` INT(11))   BEGIN
     SELECT MO.nameModule, MO.route FROM rol_modules RM 
 INNER JOIN module MO ON RM.idModule=MO.idModule
@@ -84,14 +114,50 @@ DELIMITER ;
 -- --------------------------------------------------------
 
 --
+-- Estructura de tabla para la tabla `admin`
+--
+
+DROP TABLE IF EXISTS `admin`;
+CREATE TABLE IF NOT EXISTS `admin` (
+  `Id` int(30) NOT NULL AUTO_INCREMENT,
+  `Rol` int(30) NOT NULL,
+  `p_Id` int(50) NOT NULL,
+  `p_nombre` varchar(100) NOT NULL,
+  `username` varchar(100) NOT NULL,
+  `pass` varchar(100) NOT NULL,
+  `p_email` varchar(100) NOT NULL,
+  `p_numberofdocument` int(50) NOT NULL,
+  `p_numbercellphone` int(20) NOT NULL,
+  `p_typeofdocument` int(11) NOT NULL,
+  `p_gender` int(11) DEFAULT NULL,
+  PRIMARY KEY (`Id`),
+  KEY `Idrol` (`Rol`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `admin`
+--
+
+INSERT INTO `admin` (`Id`, `Rol`, `p_Id`, `p_nombre`, `username`, `pass`, `p_email`, `p_numberofdocument`, `p_numbercellphone`, `p_typeofdocument`, `p_gender`) VALUES
+(1, 2, 13, 'maicol', 'mai', '1', 'a@a.a', 0, 32, 1, 1),
+(2, 2, 14, 'Nuevo Usuario', 'nuevo_usuario', '0', 'nuevo@usuario.com', 123456, 789012345, 1, 1),
+(4, 2, 0, '', 'admin', '123', '', 0, 0, 0, NULL),
+(5, 2, 0, '', 'admin', '123', '', 0, 0, 0, NULL),
+(6, 2, 0, '', 'admin', '123', '', 0, 0, 0, NULL);
+
+-- --------------------------------------------------------
+
+--
 -- Estructura de tabla para la tabla `document_type`
 --
 
-CREATE TABLE `document_type` (
-  `DocumentType_id` int(11) NOT NULL,
+DROP TABLE IF EXISTS `document_type`;
+CREATE TABLE IF NOT EXISTS `document_type` (
+  `DocumentType_id` int(11) NOT NULL AUTO_INCREMENT,
   `DocumentType_name` varchar(60) NOT NULL,
-  `DocumentType_descriptions` varchar(80) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `DocumentType_descriptions` varchar(80) NOT NULL,
+  PRIMARY KEY (`DocumentType_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `document_type`
@@ -108,11 +174,13 @@ INSERT INTO `document_type` (`DocumentType_id`, `DocumentType_name`, `DocumentTy
 -- Estructura de tabla para la tabla `gendertype`
 --
 
-CREATE TABLE `gendertype` (
-  `GenderType_id` int(11) NOT NULL,
+DROP TABLE IF EXISTS `gendertype`;
+CREATE TABLE IF NOT EXISTS `gendertype` (
+  `GenderType_id` int(11) NOT NULL AUTO_INCREMENT,
   `GenderType_name` varchar(60) NOT NULL,
-  `GenderType_descriptions` varchar(80) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `GenderType_descriptions` varchar(80) NOT NULL,
+  PRIMARY KEY (`GenderType_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `gendertype`
@@ -128,12 +196,14 @@ INSERT INTO `gendertype` (`GenderType_id`, `GenderType_name`, `GenderType_descri
 -- Estructura de tabla para la tabla `img`
 --
 
-CREATE TABLE `img` (
-  `id` int(30) NOT NULL,
+DROP TABLE IF EXISTS `img`;
+CREATE TABLE IF NOT EXISTS `img` (
+  `id` int(30) NOT NULL AUTO_INCREMENT,
   `url` varchar(300) NOT NULL,
   `description` text DEFAULT NULL,
-  `titulo` text NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `titulo` text NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `img`
@@ -153,15 +223,18 @@ INSERT INTO `img` (`id`, `url`, `description`, `titulo`) VALUES
 -- Estructura de tabla para la tabla `products`
 --
 
-CREATE TABLE `products` (
-  `Id` int(100) NOT NULL,
+DROP TABLE IF EXISTS `products`;
+CREATE TABLE IF NOT EXISTS `products` (
+  `Id` int(100) NOT NULL AUTO_INCREMENT,
   `Name` varchar(100) NOT NULL,
   `Description` text NOT NULL,
   `Images` varchar(100) NOT NULL,
   `description_detailed` text NOT NULL,
   `category` int(11) NOT NULL,
-  `due_date` date NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `due_date` date NOT NULL,
+  PRIMARY KEY (`Id`),
+  KEY `sta` (`category`)
+) ENGINE=InnoDB AUTO_INCREMENT=58 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `products`
@@ -187,12 +260,14 @@ INSERT INTO `products` (`Id`, `Name`, `Description`, `Images`, `description_deta
 -- Estructura de tabla para la tabla `roles`
 --
 
-CREATE TABLE `roles` (
-  `Id` int(30) NOT NULL,
+DROP TABLE IF EXISTS `roles`;
+CREATE TABLE IF NOT EXISTS `roles` (
+  `Id` int(30) NOT NULL AUTO_INCREMENT,
   `Name` varchar(100) NOT NULL,
   `Description` text NOT NULL,
-  `idUser` int(35) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `idUser` int(35) NOT NULL,
+  PRIMARY KEY (`Id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `roles`
@@ -209,11 +284,13 @@ INSERT INTO `roles` (`Id`, `Name`, `Description`, `idUser`) VALUES
 -- Estructura de tabla para la tabla `status`
 --
 
-CREATE TABLE `status` (
-  `status_id` int(11) NOT NULL,
+DROP TABLE IF EXISTS `status`;
+CREATE TABLE IF NOT EXISTS `status` (
+  `status_id` int(11) NOT NULL AUTO_INCREMENT,
   `status_name` varchar(10) NOT NULL,
-  `status_descriptions` varchar(20) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `status_descriptions` varchar(20) NOT NULL,
+  PRIMARY KEY (`status_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `status`
@@ -229,11 +306,13 @@ INSERT INTO `status` (`status_id`, `status_name`, `status_descriptions`) VALUES
 -- Estructura de tabla para la tabla `typeproduct`
 --
 
-CREATE TABLE `typeproduct` (
-  `typeProduct_id` int(11) NOT NULL,
+DROP TABLE IF EXISTS `typeproduct`;
+CREATE TABLE IF NOT EXISTS `typeproduct` (
+  `typeProduct_id` int(11) NOT NULL AUTO_INCREMENT,
   `typeProduct_name` varchar(20) NOT NULL,
-  `typeProduct_descriptions` varchar(50) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `typeProduct_descriptions` varchar(50) NOT NULL,
+  PRIMARY KEY (`typeProduct_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `typeproduct`
@@ -250,8 +329,9 @@ INSERT INTO `typeproduct` (`typeProduct_id`, `typeProduct_name`, `typeProduct_de
 -- Estructura de tabla para la tabla `usuarios`
 --
 
-CREATE TABLE `usuarios` (
-  `p_Id` int(50) NOT NULL,
+DROP TABLE IF EXISTS `usuarios`;
+CREATE TABLE IF NOT EXISTS `usuarios` (
+  `p_Id` int(50) NOT NULL AUTO_INCREMENT,
   `p_nombre` varchar(100) NOT NULL,
   `p_username` varchar(100) NOT NULL,
   `p_pass` varchar(100) NOT NULL,
@@ -260,8 +340,12 @@ CREATE TABLE `usuarios` (
   `p_numbercellphone` int(20) NOT NULL,
   `p_typeofdocument` int(11) NOT NULL,
   `p_gender` int(11) DEFAULT NULL,
-  `rol` int(30) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `rol` int(30) DEFAULT NULL,
+  PRIMARY KEY (`p_Id`),
+  KEY `Idgender` (`p_gender`),
+  KEY `Document` (`p_typeofdocument`),
+  KEY `usuarios_ibfk_1` (`rol`)
+) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `usuarios`
@@ -272,119 +356,18 @@ INSERT INTO `usuarios` (`p_Id`, `p_nombre`, `p_username`, `p_pass`, `p_email`, `
 (10, 'Maicols', 'Mike', '$2y$10$S5f789RyiEL1dQPjAi0UH.WovE9hQ4HYJh2GR361mFc1Y20h6BwZS', 'msh112@a.a', 126547, 23554134, 1, 1, 1),
 (11, 'MA', 'MAAA', '1', '1@A.A', 1, 23, 2, 2, 1),
 (13, 'maicol', 'mai', '123', 'a@a.a', 0, 32, 1, 1, 2),
-(14, 'Nuevo Usuario', 'nuevo_usuario', '123456', 'nuevo@usuario.com', 123456, 789012345, 1, 1, 2);
-
---
--- Índices para tablas volcadas
---
-
---
--- Indices de la tabla `document_type`
---
-ALTER TABLE `document_type`
-  ADD PRIMARY KEY (`DocumentType_id`);
-
---
--- Indices de la tabla `gendertype`
---
-ALTER TABLE `gendertype`
-  ADD PRIMARY KEY (`GenderType_id`);
-
---
--- Indices de la tabla `img`
---
-ALTER TABLE `img`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indices de la tabla `products`
---
-ALTER TABLE `products`
-  ADD PRIMARY KEY (`Id`),
-  ADD KEY `sta` (`category`);
-
---
--- Indices de la tabla `roles`
---
-ALTER TABLE `roles`
-  ADD PRIMARY KEY (`Id`);
-
---
--- Indices de la tabla `status`
---
-ALTER TABLE `status`
-  ADD PRIMARY KEY (`status_id`);
-
---
--- Indices de la tabla `typeproduct`
---
-ALTER TABLE `typeproduct`
-  ADD PRIMARY KEY (`typeProduct_id`);
-
---
--- Indices de la tabla `usuarios`
---
-ALTER TABLE `usuarios`
-  ADD PRIMARY KEY (`p_Id`),
-  ADD KEY `Idgender` (`p_gender`),
-  ADD KEY `Document` (`p_typeofdocument`),
-  ADD KEY `usuarios_ibfk_1` (`rol`);
-
---
--- AUTO_INCREMENT de las tablas volcadas
---
-
---
--- AUTO_INCREMENT de la tabla `document_type`
---
-ALTER TABLE `document_type`
-  MODIFY `DocumentType_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
-
---
--- AUTO_INCREMENT de la tabla `gendertype`
---
-ALTER TABLE `gendertype`
-  MODIFY `GenderType_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
-
---
--- AUTO_INCREMENT de la tabla `img`
---
-ALTER TABLE `img`
-  MODIFY `id` int(30) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
-
---
--- AUTO_INCREMENT de la tabla `products`
---
-ALTER TABLE `products`
-  MODIFY `Id` int(100) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=58;
-
---
--- AUTO_INCREMENT de la tabla `roles`
---
-ALTER TABLE `roles`
-  MODIFY `Id` int(30) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
-
---
--- AUTO_INCREMENT de la tabla `status`
---
-ALTER TABLE `status`
-  MODIFY `status_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
-
---
--- AUTO_INCREMENT de la tabla `typeproduct`
---
-ALTER TABLE `typeproduct`
-  MODIFY `typeProduct_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
-
---
--- AUTO_INCREMENT de la tabla `usuarios`
---
-ALTER TABLE `usuarios`
-  MODIFY `p_Id` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+(14, 'Nuevo Usuario', 'nuevo_usuario', '123456', 'nuevo@usuario.com', 123456, 789012345, 1, 1, 2),
+(16, 'admin', 'admin', 'admin123', 'admin@admin.admin', 123456789, 2147483647, 2, 1, 2);
 
 --
 -- Restricciones para tablas volcadas
 --
+
+--
+-- Filtros para la tabla `admin`
+--
+ALTER TABLE `admin`
+  ADD CONSTRAINT `Idrol` FOREIGN KEY (`Rol`) REFERENCES `roles` (`Id`);
 
 --
 -- Filtros para la tabla `products`
